@@ -44,7 +44,7 @@ window = Window(640,640, config = config, caption = 'FieldLines', vsync = False)
 ## add the dialogue to the frame
 #frame.add( dialogue )
 import ctypes
-clib = ctypes.CDLL("./ctest.so")
+clib = ctypes.CDLL("./drawlines.so")
 class vec2(ctypes.Structure):
         _fields_ = [("x", c_double),
                     ("y", c_double)]
