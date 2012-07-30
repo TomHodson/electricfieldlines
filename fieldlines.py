@@ -7,8 +7,7 @@ from numpy import *
 #from simplui import *
 
 pyglet.options['debug_gl'] = False
-config = pyglet.gl.Config(stencil_size=0,depth_size=0, double_buffer=True)
-window = Window(640,640, config = config, caption = 'FieldLines', vsync = False)
+window = Window(640,640, caption = 'FieldLines', vsync = True)
 
 #themes = [Theme('../simplui-1.0.4/themes/macos'), Theme('../simplui-1.0.4/themes/pywidget')]
 #theme = 0
@@ -43,16 +42,6 @@ window = Window(640,640, config = config, caption = 'FieldLines', vsync = False)
 #    )
 ## add the dialogue to the frame
 #frame.add( dialogue )
-import ctypes
-clib = ctypes.CDLL("./drawlines.so")
-class vec2(ctypes.Structure):
-        _fields_ = [("x", c_double),
-                    ("y", c_double)]
-class pointcharge(ctypes.Structure):
-        _fields_ = [("x", c_double),
-                    ("y", c_double),
-                    ("charge",c_double)]
-clib.field.restype = vec2
 
 held_objects = set()
 hovered = None
@@ -70,6 +59,24 @@ scale = 10
 vectlines = True
 vectgrid = False
 useC = True
+
+try:
+    import ctypes
+    clib = ctypes.CDLL("./drawlines.so")
+    class vec2(ctypes.Structure):
+            _fields_ = [("x", c_double),
+                        ("y", c_double)]
+    class pointcharge(ctypes.Structure):
+            _fields_ = [("x", c_double),
+                        ("y", c_double),
+                        ("charge",c_double)]
+    clib.field.restype = vec2
+except ImportError:
+    print "Ctypes not installed, switching to python (slow)"
+    useC = False
+except:
+    print "Couldn't find drawlines.so, try running make. switching to python (slow)"
+    useC = False
   
 class Button(object):
     def __init__(self, x, y, radii, halo_colour = None, held_colour=None, charge=1.0):
@@ -165,16 +172,15 @@ class ButtonEventHandler(object):
             
     def on_key_press(self, *args):
         global vectlines; global vectgrid; global update; global useC
+        global buttons
+        if args[0] == key.P:print buttons
         if args[0] == key.C: useC = not useC
-        if args[0] == key.Q:window.config.sample_buffers = 0 if window.config.sample_buffers else 1
         if args[0] == key.L: vectlines = not vectlines
         if args[0] == key.G: vectgrid = not vectgrid
         if args[0] == key.B:
             buttons.append(Button(mouseX, mouseY, 20))
         if args[0] == key.N:
             buttons.append(Button(mouseX, mouseY, 20, charge=-1))
-        elif args[0] == key.S:
-            buttons.append(Slider(mouseX, mouseY, 20))
         elif hovered:
                 hovered.key_press(*args)
         update = True
@@ -200,9 +206,7 @@ def EfieldC(pos):
 def drawvectorfield():
     for x in range(0, window.width, grid):
         for y in range(0, window.height, grid):
-            if useC:
-                vect = EfieldC(array((x,y)))
-            else: vect = EfieldB(array((x,y)))
+            vect = EfieldC(array((x,y))) if useC else EfieldB(array((x,y)))
             vect = vect/sqrt(vect.dot(vect)) * grid
             line(x, y, x+vect[0], y+vect[1])
     
@@ -232,7 +236,7 @@ def drawfieldlines():
             pos = array((Button.x + angle[0],angle[1] + Button.y))
             for i in range(maxits):
                 points[2*i], points[(2*i)+1] = pos[0], pos[1] 
-                field = EfieldC(pos)
+                field = EfieldC(pos) if useC else EfieldB(pos)
                 vect = field/sqrt(field.dot(field)) * Button.charge
                 pos += vect * step
                 if offscreen(pos) or nearbutton(pos):
