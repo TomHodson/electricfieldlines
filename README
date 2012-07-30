@@ -1,5 +1,8 @@
 Depends on Ctypes, Numpy and Pyglet.
 
+To compile (from within the directory):
+$make
+
 To run:
 $python fieldlines.py
 
