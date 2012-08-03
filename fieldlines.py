@@ -45,7 +45,7 @@ window = Window(640,640, caption = 'FieldLines', vsync = True)
 
 held_objects = set()
 hovered = None
-buttons = []
+Buttons = []
 fps_display = pyglet.clock.ClockDisplay()
 
 mouseX = window.width/2
@@ -120,7 +120,7 @@ class Button(object):
             
     def key_press(self, symbol, mods):
         if self.hovered and symbol == key.DELETE:
-                buttons.remove(self)
+                Buttons.remove(self)
                 del self
         
     def draw(self):
@@ -137,7 +137,7 @@ class ButtonEventHandler(object):
         global mouseY
         mouseX, mouseY = args[:2]
         hovered = None
-        for button in buttons:
+        for button in Buttons:
             if button.mouse_motion(*args):
                 global update
                 update = True
@@ -158,7 +158,7 @@ class ButtonEventHandler(object):
             glPushMatrix()
             window.clear()
             fps_display.draw()
-            for button in buttons:
+            for button in Buttons:
                 button.draw()
             if vectgrid: drawvectorfield()
             if vectlines: Cdrawfieldlines() if useC else drawfieldlines()
@@ -172,22 +172,22 @@ class ButtonEventHandler(object):
             
     def on_key_press(self, *args):
         global vectlines; global vectgrid; global update; global useC
-        global buttons
-        if args[0] == key.P:print buttons
+        global Buttons
+        if args[0] == key.P:print Buttons
         if args[0] == key.C: useC = not useC
         if args[0] == key.L: vectlines = not vectlines
         if args[0] == key.G: vectgrid = not vectgrid
         if args[0] == key.B:
-            buttons.append(Button(mouseX, mouseY, 20))
+            Buttons.append(Button(mouseX, mouseY, 20))
         if args[0] == key.N:
-            buttons.append(Button(mouseX, mouseY, 20, charge=-1))
+            Buttons.append(Button(mouseX, mouseY, 20, charge=-1))
         elif hovered:
                 hovered.key_press(*args)
         update = True
         
 def EfieldB(pos):
     vect = [0, 0]
-    for Button in buttons:
+    for Button in Buttons:
         mousevect = (pos[0] - Button.x, pos[1] - Button.y)
         mag = sqrt(mousevect[0]**2 + mousevect[1]**2)
         scale = (Button.charge/(mag*zoom)**2)
@@ -197,9 +197,9 @@ def EfieldB(pos):
     return array(vect)
 
 def EfieldC(pos):
-    pointsarray = pointcharge * len(buttons)
+    pointsarray = pointcharge * len(Buttons)
     pos = vec2(*pos)
-    points = pointsarray(*(pointcharge(button.x, button.y, button.charge) for button in buttons))
+    points = pointsarray(*(pointcharge(button.x, button.y, button.charge) for button in Buttons))
     force = clib.field(pos, ctypes.c_int(len(points)), points)
     return array((force.x, force.y))
 
@@ -211,13 +211,13 @@ def drawvectorfield():
             line(x, y, x+vect[0], y+vect[1])
     
 def Cdrawfieldlines():
-    pointsarray = pointcharge * len(buttons)
-    points = pointsarray(*(pointcharge(button.x, button.y, button.charge) for button in buttons))
-    numofbuttons = len(buttons)
-    datatype = ((ctypes.c_double * 200)*12)*numofbuttons
+    pointsarray = pointcharge * len(Buttons)
+    points = pointsarray(*(pointcharge(button.x, button.y, button.charge) for button in Buttons))
+    numofButtons = len(Buttons)
+    datatype = ((ctypes.c_double * 200)*12)*numofButtons
     data = datatype()
-    clib.vectorline(ctypes.c_int(len(buttons)),points,data)
-    for cbutton,pbutton in zip(data, buttons):
+    clib.vectorline(ctypes.c_int(len(Buttons)),points,data)
+    for cbutton,pbutton in zip(data, Buttons):
         for list in cbutton:
             #print "after",list[:10]
             line(*list, colour=pbutton.halo_colour)
@@ -230,7 +230,7 @@ def drawfieldlines():
     anglestep = (2*pi/linesperbutton)
     angles = [(math.cos(i*anglestep),math.sin(i*anglestep)) for i in range(linesperbutton)]
     points = [int() for i in range(maxits * 2)]
-    for Button in buttons:
+    for Button in Buttons:
         for angle in angles:
             end = None
             pos = array((Button.x + angle[0],angle[1] + Button.y))
@@ -245,7 +245,7 @@ def drawfieldlines():
             line(*points[:end or maxits*2], colour=Button.halo_colour)
 
 def nearbutton(pos):
-    for Button in buttons:
+    for Button in Buttons:
         if ((Button.x-10 < pos[0] < Button.x+10) and (Button.y-10 < pos[1] < Button.y+10)): return True
     return False
 def offscreen(pos):
