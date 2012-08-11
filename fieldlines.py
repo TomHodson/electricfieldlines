@@ -45,10 +45,11 @@ window = Window(640,640, caption = 'FieldLines', vsync = True)
 ## add the dialogue to the frame
 #frame.add( dialogue )
 
-held_objects = set()
-hovered = None
-Buttons = []
+
+
 fps_display = pyglet.clock.ClockDisplay()
+
+Buttons = []
 
 mouseX = window.width/2
 mouseY = window.height/2
@@ -79,9 +80,27 @@ except ImportError:
 except:
     print "Couldn't find drawlines.so, try running make. switching to python (slow)"
     useC = False
-  
+class Link(object):
+    def __init__(self, button1, button2, strength, length, damp=0.8):
+        self.button1 = button1
+        self.button2 = button2
+        self.strength = strength
+        self.length = length
+        self.damp = damp
+    def compute(self, dt):
+        deltap = (self.button1.x - self.button2.x, self.button1.y - self.button2.y)
+        distance = math.sqrt(deltap[0]**2 + deltap[1]**2)
+        direction = (deltap[0] / distance, deltap[1] / distance)
+        displacement = distance - self.length
+        force = (displacement * direction[0] * self.strength - self.damp * displacement , displacement * direction[1] * self.strength - self.damp * displacement )
+
+        self.button2.acc = (self.button1.acc[0] + force[0] * dt,self.button1.acc[0] + force[1] * dt)
+        self.button1.acc = (self.button2.acc[0] + (-1.0) * force[0] * dt,self.button2.acc[1] + -1.0 * force[1] * dt)
+        line(self.button1.x, self.button1.y, self.button2.x, self.button2.y)
+
+
 class Button(object):
-    def __init__(self, x, y, radii, halo_colour = None, held_colour=None, charge=1.0):
+    def __init__(self, x, y, radii, halo_colour = None, held_colour=None, charge=1.0, mass = 1.0):
         self.x, self.y = int(x), int(y)
         self.radii = radii
         self.sqradii = self.radii ** 2
@@ -95,6 +114,11 @@ class Button(object):
         self.haloshape = Circle(self.radii, colour=self.halo_colour)
         self.handleshape = Circle(self.radii, colour=self.held_colour)
         self.charge = charge
+
+        self.invmass = 1.0 / mass
+        self.pos = (int(x), int(y))
+        self.vel = (0,0)
+        self.acc = (0,0)
     def mouse_press(self, x, y, button, modifiers):
         if self.hovered:
             held_objects.add(self)
@@ -125,12 +149,21 @@ class Button(object):
                 Buttons.remove(self)
                 del self
         
-    def draw(self):
+    def draw(self, dt = 1.0/20.0):
+        print (self.charge * 100000 * EfieldC((self.x, self.y), [button for button in Buttons if button is not self]) * self.invmass)
+        self.acc += (self.charge * 100000 * EfieldC((self.x, self.y), [button for button in Buttons if button is not self]) * self.invmass)
+        #print 'acc ' ,self.acc
+        self.vel += self.acc * dt
+        #print 'old pos ', self.x, self.y
+        self.x, self.y = (self.x, self.y) + (self.vel * dt)
+        #print 'new pos ', self.x, self.y
+
+
         if self.held:
             self.handleshape.draw(self.x,self.y)
         elif self is hovered:
             self.haloshape.draw(self.x,self.y)
-        point(self.x, self.y)
+        self.acc = (0.0,0.0)
   
 
 class ButtonEventHandler(object):
@@ -154,14 +187,18 @@ class ButtonEventHandler(object):
             object.mouse_release(*args)
         held_objects.clear()
 
-    def on_draw(self):
+    def compute(self, dt=1.0/20.0):
         global update
+        update = True
         if update:
+            #dt = pyglet.clock.tick()
             glPushMatrix()
             window.clear()
             fps_display.draw()
+            for link in Links:
+                link.compute(dt=dt)
             for button in Buttons:
-                button.draw()
+                button.draw(dt=dt)
             if vectgrid: drawvectorfield()
             if vectlines: Cdrawfieldlines() if useC else drawfieldlines()
             glPopMatrix()
@@ -198,11 +235,13 @@ def EfieldB(pos):
         vect[1] += mousevect[1]
     return array(vect)
 
-def EfieldC(pos):
-    pointsarray = pointcharge * len(Buttons)
+def EfieldC(pos, buttons = Buttons):
+    print 'EfieldC in', pos
+    pointsarray = pointcharge * len(buttons)
     pos = vec2(*pos)
-    points = pointsarray(*(pointcharge(button.x, button.y, button.charge) for button in Buttons))
+    points = pointsarray(*(pointcharge(button.x, button.y, button.charge) for button in buttons))
     force = clib.field(pos, ctypes.c_int(len(points)), points)
+    print  'EfieldC out', array((force.x, force.y)), force.x, force.y
     return array((force.x, force.y))
 
 def drawvectorfield():
@@ -252,6 +291,15 @@ def nearbutton(pos):
     return False
 def offscreen(pos):
     return not ((0 < pos[0] < window.width) and (0 < pos[1] < window.height))
- 
-window.push_handlers(ButtonEventHandler())
+
+buttonevents = ButtonEventHandler() 
+
+window.push_handlers(buttonevents)
+pyglet.clock.schedule_interval(buttonevents.compute, 1.0/20.0)
+
+held_objects = set()
+hovered = None
+Buttons = [Button(mouseX, mouseY, 20), Button(mouseX, mouseY + 10, 20)]
+Links = [Link(Buttons[0] , Buttons[1], 10.0, 100.0)]
+
 pyglet.app.run()
