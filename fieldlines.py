@@ -50,6 +50,7 @@ window = Window(640,640, caption = 'FieldLines', vsync = True)
 fps_display = pyglet.clock.ClockDisplay()
 
 Buttons = []
+Links = []
 
 mouseX = window.width/2
 mouseY = window.height/2
@@ -101,7 +102,6 @@ class Link(object):
 
 class Button(object):
     def __init__(self, x, y, radii, halo_colour = None, held_colour=None, charge=1.0, mass = 1.0):
-        self.x, self.y = int(x), int(y)
         self.radii = radii
         self.sqradii = self.radii ** 2
         
@@ -116,9 +116,11 @@ class Button(object):
         self.charge = charge
 
         self.invmass = 1.0 / mass
-        self.pos = (int(x), int(y))
-        self.vel = (0,0)
-        self.acc = (0,0)
+        self.pos = array((float(x), float(y)))
+        self.vel = array((0,0))
+        self.acc = array((0,0))
+        self.x, self.y = self.pos[0], self.pos[1]
+
     def mouse_press(self, x, y, button, modifiers):
         if self.hovered:
             held_objects.add(self)
@@ -128,8 +130,7 @@ class Button(object):
     def mouse_drag(self, x, y, dx, dy, but, mod):
         self.x += dx
         self.y += dy
-        self.x = self.x % window.width
-        self.y = self.y % window.height
+        self.vel = array((0,0))
     def mouse_release(self, x, y, button, modifiers):
         self.held = False
     def mouse_motion(self, x, y, dx, dy):
@@ -150,7 +151,6 @@ class Button(object):
                 del self
         
     def draw(self, dt = 1.0/20.0):
-        print (self.charge * 100000 * EfieldC((self.x, self.y), [button for button in Buttons if button is not self]) * self.invmass)
         self.acc += (self.charge * 100000 * EfieldC((self.x, self.y), [button for button in Buttons if button is not self]) * self.invmass)
         #print 'acc ' ,self.acc
         self.vel += self.acc * dt
@@ -167,10 +167,17 @@ class Button(object):
   
 
 class ButtonEventHandler(object):
+    def __init__(self):
+        self.scalef = 2.0
+        self.translation = array((0,0,0))
+        self.mousepos = array((0,0))
+
     def on_mouse_motion(self, *args):
         global mouseX
         global mouseY
-        mouseX, mouseY = args[:2]
+        args = list(args)
+        self.mousepos = (array((args[:2])) - self.translation[:2]) / self.scalef
+        args[:2] = self.mousepos
         hovered = None
         for button in Buttons:
             if button.mouse_motion(*args):
@@ -189,67 +196,65 @@ class ButtonEventHandler(object):
 
     def compute(self, dt=1.0/20.0):
         global update
+        global scalef
         update = True
-        if update:
-            #dt = pyglet.clock.tick()
-            glPushMatrix()
-            window.clear()
-            fps_display.draw()
-            for link in Links:
-                link.compute(dt=dt)
-            for button in Buttons:
-                button.draw(dt=dt)
-            if vectgrid: drawvectorfield()
-            if vectlines: Cdrawfieldlines() if useC else drawfieldlines()
-            glPopMatrix()
-            update = False
+        #dt = pyglet.clock.tick()
+        glPushMatrix()
+        fps_display.draw()
+        window.clear()
+        glTranslatef(*self.translation)
+
+        glScalef(*([self.scalef] * 3))
+        point(0,0)
+        point(*self.mousepos)
+        for link in Links:
+            link.compute(dt=dt)
+        for button in Buttons:
+            button.draw(dt=dt)
+        if vectgrid: drawvectorfield()
+        if vectlines: Cdrawfieldlines() if useC else drawfieldlines()
+        glPopMatrix()
     def on_mouse_drag(self, *args):
         global update
-        for object in held_objects:
-            object.mouse_drag(*args)
+        args = list(args)
+        args[2:4] = array(args[2:4]) / self.scalef
+        if held_objects:    
+            for object in held_objects:
+                object.mouse_drag(*args)
+        else:
+            self.translation += array(args[2:4] + [0])
         update = True
             
     def on_key_press(self, *args):
         global vectlines; global vectgrid; global update; global useC
         global Buttons
-        if args[0] == key.P:print Buttons
+        if args[0] == key.P: print Buttons[0].x, Buttons[0].y, self.mousepos
         if args[0] == key.C: useC = not useC
         if args[0] == key.L: vectlines = not vectlines
         if args[0] == key.G: vectgrid = not vectgrid
         if args[0] == key.B:
             Buttons.append(Button(mouseX, mouseY, 20))
         if args[0] == key.N:
-            Buttons.append(Button(mouseX, mouseY, 20, charge=-1))
+            Buttons.append(Button(self.mousepos[0], self.mousepos[1], 20, charge=-1))
         elif hovered:
                 hovered.key_press(*args)
         update = True
+    def on_mouse_scroll(self, x, y, dx, dy):
+        inc = 0.05
+        self.scalef += (dy * inc)
+        print self.mousepos
+         #self.translation += array((dx,dy, 0)) * 0.5
         
-def EfieldB(pos):
-    vect = [0, 0]
-    for Button in Buttons:
-        mousevect = (pos[0] - Button.x, pos[1] - Button.y)
-        mag = sqrt(mousevect[0]**2 + mousevect[1]**2)
-        scale = (Button.charge/(mag*zoom)**2)
-        mousevect = (mousevect[0]/mag * scale, mousevect[1]/mag * scale)
-        vect[0] += mousevect[0]
-        vect[1] += mousevect[1]
-    return array(vect)
 
 def EfieldC(pos, buttons = Buttons):
-    print 'EfieldC in', pos
+    #print 'EfieldC in', pos
     pointsarray = pointcharge * len(buttons)
     pos = vec2(*pos)
     points = pointsarray(*(pointcharge(button.x, button.y, button.charge) for button in buttons))
     force = clib.field(pos, ctypes.c_int(len(points)), points)
-    print  'EfieldC out', array((force.x, force.y)), force.x, force.y
+    #print  'EfieldC out', array((force.x, force.y)), force.x, force.y
     return array((force.x, force.y))
 
-def drawvectorfield():
-    for x in range(0, window.width, grid):
-        for y in range(0, window.height, grid):
-            vect = EfieldC(array((x,y))) if useC else EfieldB(array((x,y)))
-            vect = vect/sqrt(vect.dot(vect)) * grid
-            line(x, y, x+vect[0], y+vect[1])
     
 def Cdrawfieldlines():
     pointsarray = pointcharge * len(Buttons)
@@ -263,27 +268,6 @@ def Cdrawfieldlines():
             #print "after",list[:10]
             line(*list, colour=pbutton.halo_colour)
     
-def drawfieldlines():
-    linesperbutton = 12
-    maxits = 50
-    ini = 1
-    step = 20
-    anglestep = (2*pi/linesperbutton)
-    angles = [(math.cos(i*anglestep),math.sin(i*anglestep)) for i in range(linesperbutton)]
-    points = [int() for i in range(maxits * 2)]
-    for Button in Buttons:
-        for angle in angles:
-            end = None
-            pos = array((Button.x + angle[0],angle[1] + Button.y))
-            for i in range(maxits):
-                points[2*i], points[(2*i)+1] = pos[0], pos[1] 
-                field = EfieldC(pos) if useC else EfieldB(pos)
-                vect = field/sqrt(field.dot(field)) * Button.charge
-                pos += vect * step
-                if offscreen(pos) or nearbutton(pos):
-                    end = (i+1)*2
-                    break
-            line(*points[:end or maxits*2], colour=Button.halo_colour)
 
 def nearbutton(pos):
     for Button in Buttons:
@@ -299,7 +283,9 @@ pyglet.clock.schedule_interval(buttonevents.compute, 1.0/20.0)
 
 held_objects = set()
 hovered = None
-Buttons = [Button(mouseX, mouseY, 20), Button(mouseX, mouseY + 10, 20)]
-Links = [Link(Buttons[0] , Buttons[1], 10.0, 100.0)]
+Buttons = [Button(mouseX, mouseY, 20)]#, Button(mouseX, mouseY + 10, 20)]
+#Links = [Link(Buttons[0] , Buttons[1], 10.0, 100.0)]
+
+#window.push_handlers(pyglet.window.event.WindowEventLogger())
 
 pyglet.app.run()
