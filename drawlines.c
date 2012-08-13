@@ -19,6 +19,10 @@ int nearbutton(vec2 pos, int numberofpoints, pointcharge point[]);
 vec2 field(vec2 pos, int numofpoints, pointcharge points[]);
 void vectorline(int numofpoints, pointcharge points[], double output[][numoflines][maxits*2], double step);
 
+double signf(double num) {
+
+    return (0 < num) - (num < 0);
+}
     
 vec2 field(vec2 pos, int numofpoints, pointcharge points[])
 {   
@@ -60,8 +64,8 @@ for(int point = 0; point < numofpoints; point++)
             vec2 thisvec = field(pos, numofpoints, points);
             double mag = sqrt((thisvec.x*thisvec.x) + (thisvec.y*thisvec.y));
             thisvec.x = thisvec.x/mag; thisvec.y = thisvec.y/mag;
-            lastx = output[point][lineno][2*it] = lastx + (thisvec.x * step * points[point].charge);
-            lasty = output[point][lineno][(2*it)+1] = lasty + (thisvec.y * step * points[point].charge);
+            lastx = output[point][lineno][2*it] = lastx + (thisvec.x * step * signf(points[point].charge));
+            lasty = output[point][lineno][(2*it)+1] = lasty + (thisvec.y * step * signf(points[point].charge));
             }
         }
     }

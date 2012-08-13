@@ -151,9 +151,11 @@ class Button(object):
                 del self
         
     def draw(self, dt = 1.0/20.0):
-        self.acc += (self.charge * 100000 * EfieldC((self.x, self.y), [button for button in Buttons if button is not self]) * self.invmass)
+        friction = 0.5
+
+        self.acc += (self.charge * EfieldC((self.x, self.y), [button for button in Buttons if button is not self]) * self.invmass)
         #print 'acc ' ,self.acc
-        self.vel += self.acc * dt
+        self.vel += self.acc * dt * friction
         #print 'old pos ', self.x, self.y
         self.x, self.y = (self.x, self.y) + (self.vel * dt)
         #print 'new pos ', self.x, self.y
@@ -196,17 +198,28 @@ class ButtonEventHandler(object):
 
     def compute(self, dt=1.0/20.0):
         global update
-        global scalef
         update = True
-        #dt = pyglet.clock.tick()
-        glPushMatrix()
-        fps_display.draw()
         window.clear()
+
+        fps_display.draw()
+        debuginfo = pyglet.text.Label('scale: {:.3} worldpoint: {p[0]:4.0f},{p[0]:4.0f} field: {field[0]:3.0g},{field[1]:3.0f}'.format(self.scalef, p=self.mousepos, field=EfieldC(self.mousepos)),
+                          font_name='monospace',
+                          font_size=15,
+                          x=0, y=window.height - 15)
+        debuginfo.draw()
+
+        if hovered:
+            buttoninfo = pyglet.text.Label('charge {:.3f}, mass {:.3f}'.format(hovered.charge, 1.0/hovered.invmass),
+                          font_name='monospace',
+                          font_size=15,
+                          x=0, y=window.height - 32)
+            buttoninfo.draw()
+
+        glPushMatrix()
         glTranslatef(*self.translation)
 
         glScalef(*([self.scalef] * 3))
         point(0,0)
-        point(*self.mousepos)
         for link in Links:
             link.compute(dt=dt)
         for button in Buttons:
@@ -228,25 +241,22 @@ class ButtonEventHandler(object):
     def on_key_press(self, *args):
         global vectlines; global vectgrid; global update; global useC
         global Buttons
-        if args[0] == key.P: print Buttons[0].x, Buttons[0].y, self.mousepos
-        if args[0] == key.C: useC = not useC
         if args[0] == key.L: vectlines = not vectlines
-        if args[0] == key.G: vectgrid = not vectgrid
         if args[0] == key.B:
-            Buttons.append(Button(self.mousepos[0], self.mousepos[1], 20))
+            Buttons.append(Button(self.mousepos[0], self.mousepos[1], 20, charge =10))
         if args[0] == key.N:
-            Buttons.append(Button(self.mousepos[0], self.mousepos[1], 20, charge=-1))
+            Buttons.append(Button(self.mousepos[0], self.mousepos[1], 20, charge=-10))
         elif hovered:
                 hovered.key_press(*args)
         update = True
     def on_mouse_scroll(self, x, y, dx, dy):
-        inc = 0.05
-        if self.scalef + (dy * inc) < 0.001: dy = 0
-
-        newscalef = self.scalef + (dy * inc)
-        self.translation[:2] -= (self.mousepos * newscalef) - (self.mousepos * self.scalef)
-        self.scalef = newscalef
-         #self.translation += array((dx,dy, 0)) * 0.5
+        if not hovered:
+            inc = 1.1
+            newscalef = self.scalef * (inc**dy)
+            self.translation[:2] -= (self.mousepos * newscalef) - (self.mousepos * self.scalef)
+            self.scalef = newscalef
+        else:
+            hovered.charge *= 1.5**dy
         
 
 def EfieldC(pos, buttons = Buttons):
