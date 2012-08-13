@@ -9,7 +9,7 @@ from numpy import *
 #from simplui import *
 
 pyglet.options['debug_gl'] = False
-window = Window(640,640, caption = 'FieldLines', vsync = True)
+window = Window(800,640, caption = 'FieldLines', vsync = True)
 
 #themes = [Theme('../simplui-1.0.4/themes/macos'), Theme('../simplui-1.0.4/themes/pywidget')]
 #theme = 0
@@ -56,10 +56,6 @@ mouseX = window.width/2
 mouseY = window.height/2
 update = True
 
-zoom = 10.0
-grid = 50
-scale = 10
-
 vectlines = True
 vectgrid = False
 useC = True
@@ -82,7 +78,7 @@ except:
     print "Couldn't find drawlines.so, try running make. switching to python (slow)"
     useC = False
 class Link(object):
-    def __init__(self, button1, button2, strength, length, damp=0.8):
+    def __init__(self, button1, button2, strength=10.0, length=100.0, damp=0.8):
         self.button1 = button1
         self.button2 = button2
         self.strength = strength
@@ -113,6 +109,7 @@ class Button(object):
         
         self.haloshape = Circle(self.radii, colour=self.halo_colour)
         self.handleshape = Circle(self.radii, colour=self.held_colour)
+        self.normalshape = Circle(self.radii / 3, colour=self.halo_colour)
         self.charge = charge
 
         self.invmass = 1.0 / mass
@@ -121,11 +118,15 @@ class Button(object):
         self.acc = array((0,0))
         self.x, self.y = self.pos[0], self.pos[1]
 
-    def mouse_press(self, x, y, button, modifiers):
+    def mouse_press(self, x, y, button, modifiers, context):
         if self.hovered:
-            held_objects.add(self)
-            self.held = True
-            return True
+            if button == 1:
+                held_objects.add(self)
+                context.selected_objects = self
+                self.held = True
+                return True
+            if button == 4:
+                Links.add(Link(self, context.selected_objects))
             
     def mouse_drag(self, x, y, dx, dy, but, mod):
         self.x += dx
@@ -166,6 +167,8 @@ class Button(object):
             self.handleshape.draw(self.x,self.y)
         elif self is hovered:
             self.haloshape.draw(self.x,self.y)
+        else:
+            self.normalshape.draw(self.x,self.y)
         self.acc = (0.0,0.0)
   
 
@@ -175,6 +178,7 @@ class ButtonEventHandler(object):
         self.translation = array((0,0,0))
         self.mousepos = array((0,0))
         self.keys = key.KeyStateHandler()
+        self.selected_objects = None
 
     def on_mouse_motion(self, *args):
         global mouseX
@@ -189,9 +193,9 @@ class ButtonEventHandler(object):
                 update = True
                 break
       
-    def on_mouse_press(self, *args):
+    def on_mouse_press(self, x, y, button, mod):
         if hovered:
-            hovered.mouse_press(*args)
+            hovered.mouse_press(x, y, button, mod, self)
       
     def on_mouse_release(self, *args):
         for object in held_objects:
@@ -204,7 +208,7 @@ class ButtonEventHandler(object):
         window.clear()
 
         fps_display.draw()
-        debuginfo = pyglet.text.Label('scale: {:.3} worldpoint: {p[0]:4.0f},{p[0]:4.0f} field: {field[0]:3.0g},{field[1]:3.0f}'.format(self.scalef, p=self.mousepos, field=EfieldC(self.mousepos)),
+        debuginfo = pyglet.text.Label('scale: {:.3} worldpoint: {p[0]:4.0f},{p[0]:4.0f} selected: {s}'.format(self.scalef, p=self.mousepos, s=self.selected_objects),
                           font_name='monospace',
                           font_size=15,
                           x=0, y=window.height - 15)
@@ -243,7 +247,7 @@ class ButtonEventHandler(object):
     def on_key_press(self, *args):
         global vectlines; global vectgrid; global update; global useC
         global Buttons; global Links
-        if args[0] == key.C: Buttons = []; Links = []
+        if args[0] == key.C: Buttons = []; Links = set()
         if args[0] == key.L: vectlines = not vectlines
         if args[0] == key.B:
             Buttons.append(Button(self.mousepos[0], self.mousepos[1], 20, charge =10))
@@ -297,9 +301,10 @@ window.push_handlers(buttonevents.keys)
 pyglet.clock.schedule_interval(buttonevents.compute, 1.0/20.0)
 
 held_objects = set()
+selected_objects = set()
 hovered = None
 Buttons = [Button(mouseX, mouseY, 20), Button(mouseX, mouseY + 100, 20)]
-Links = [Link(Buttons[0] , Buttons[1], 10.0, 100.0)]
+Links = set([Link(Buttons[0] , Buttons[1], 10.0, 100.0)])
 #window.push_handlers(pyglet.window.event.WindowEventLogger())
 
 pyglet.app.run()
