@@ -149,6 +149,11 @@ class Button(object):
     def key_press(self, symbol, mods):
         if self.hovered and symbol == key.DELETE:
                 Buttons.remove(self)
+                deadlinks = set()
+                for link in Links:
+                    if link.button1 == self or link.button2 == self:
+                        deadlinks.add(link)
+                Links.difference_update(deadlinks)
                 del self
         
     def draw(self, dt = 1.0/20.0):
