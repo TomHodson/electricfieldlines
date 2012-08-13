@@ -89,14 +89,14 @@ class Link(object):
         self.length = length
         self.damp = damp
     def compute(self, dt):
-        deltap = (self.button1.x - self.button2.x, self.button1.y - self.button2.y)
+        deltap = array((self.button1.x - self.button2.x, self.button1.y - self.button2.y))
         distance = math.sqrt(deltap[0]**2 + deltap[1]**2)
-        direction = (deltap[0] / distance, deltap[1] / distance)
+        direction = array((deltap[0] / distance, deltap[1] / distance))
         displacement = distance - self.length
-        force = (displacement * direction[0] * self.strength - self.damp * displacement , displacement * direction[1] * self.strength - self.damp * displacement )
+        force = direction * displacement * self.strength
 
-        self.button2.acc = (self.button1.acc[0] + force[0] * dt,self.button1.acc[0] + force[1] * dt)
-        self.button1.acc = (self.button2.acc[0] + (-1.0) * force[0] * dt,self.button2.acc[1] + -1.0 * force[1] * dt)
+        self.button2.acc += force * self.button2.invmass * 1.0 
+        self.button1.acc += force * self.button1.invmass * -1.0
         line(self.button1.x, self.button1.y, self.button2.x, self.button2.y)
 
 
@@ -151,11 +151,12 @@ class Button(object):
                 del self
         
     def draw(self, dt = 1.0/20.0):
-        friction = 0.5
+        friction = 0.9
 
-        self.acc += (self.charge * EfieldC((self.x, self.y), [button for button in Buttons if button is not self]) * self.invmass)
+        self.acc += (self.charge * 1000 * EfieldC((self.x, self.y), [button for button in Buttons if button is not self]) * self.invmass)
         #print 'acc ' ,self.acc
-        self.vel += self.acc * dt * friction
+        self.vel += self.acc * dt
+        self.vel *= friction
         #print 'old pos ', self.x, self.y
         self.x, self.y = (self.x, self.y) + (self.vel * dt)
         #print 'new pos ', self.x, self.y
@@ -170,9 +171,10 @@ class Button(object):
 
 class ButtonEventHandler(object):
     def __init__(self):
-        self.scalef = 2.0
+        self.scalef = 1.0
         self.translation = array((0,0,0))
         self.mousepos = array((0,0))
+        self.keys = key.KeyStateHandler()
 
     def on_mouse_motion(self, *args):
         global mouseX
@@ -240,7 +242,8 @@ class ButtonEventHandler(object):
             
     def on_key_press(self, *args):
         global vectlines; global vectgrid; global update; global useC
-        global Buttons
+        global Buttons; global Links
+        if args[0] == key.C: Buttons = []; Links = []
         if args[0] == key.L: vectlines = not vectlines
         if args[0] == key.B:
             Buttons.append(Button(self.mousepos[0], self.mousepos[1], 20, charge =10))
@@ -255,6 +258,8 @@ class ButtonEventHandler(object):
             newscalef = self.scalef * (inc**dy)
             self.translation[:2] -= (self.mousepos * newscalef) - (self.mousepos * self.scalef)
             self.scalef = newscalef
+        elif self.keys[key.M]:
+            hovered.invmass /= 1.5**dy
         else:
             hovered.charge *= 1.5**dy
         
@@ -287,13 +292,14 @@ def Cdrawfieldlines(context):
 buttonevents = ButtonEventHandler() 
 
 window.push_handlers(buttonevents)
+window.push_handlers(buttonevents.keys)
+
 pyglet.clock.schedule_interval(buttonevents.compute, 1.0/20.0)
 
 held_objects = set()
 hovered = None
-Buttons = [Button(mouseX, mouseY, 20)]#, Button(mouseX, mouseY + 10, 20)]
-#Links = [Link(Buttons[0] , Buttons[1], 10.0, 100.0)]
-
+Buttons = [Button(mouseX, mouseY, 20), Button(mouseX, mouseY + 100, 20)]
+Links = [Link(Buttons[0] , Buttons[1], 10.0, 100.0)]
 #window.push_handlers(pyglet.window.event.WindowEventLogger())
 
 pyglet.app.run()
