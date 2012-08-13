@@ -170,7 +170,7 @@ class Button(object):
 
 class ButtonEventHandler(object):
     def __init__(self):
-        self.scalef = 2.0
+        self.scalef = 1.0
         self.translation = array((0,0,0))
         self.mousepos = array((0,0))
 
