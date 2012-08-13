@@ -212,13 +212,13 @@ class ButtonEventHandler(object):
         for button in Buttons:
             button.draw(dt=dt)
         if vectgrid: drawvectorfield()
-        if vectlines: Cdrawfieldlines() if useC else drawfieldlines()
+        if vectlines: Cdrawfieldlines(self)
         glPopMatrix()
     def on_mouse_drag(self, *args):
         global update
         args = list(args)
-        args[2:4] = array(args[2:4]) / self.scalef
-        if held_objects:    
+        if held_objects:
+            args[2:4] = array(args[2:4]) / self.scalef    
             for object in held_objects:
                 object.mouse_drag(*args)
         else:
@@ -233,7 +233,7 @@ class ButtonEventHandler(object):
         if args[0] == key.L: vectlines = not vectlines
         if args[0] == key.G: vectgrid = not vectgrid
         if args[0] == key.B:
-            Buttons.append(Button(mouseX, mouseY, 20))
+            Buttons.append(Button(self.mousepos[0], self.mousepos[1], 20))
         if args[0] == key.N:
             Buttons.append(Button(self.mousepos[0], self.mousepos[1], 20, charge=-1))
         elif hovered:
@@ -241,8 +241,11 @@ class ButtonEventHandler(object):
         update = True
     def on_mouse_scroll(self, x, y, dx, dy):
         inc = 0.05
-        self.scalef += (dy * inc)
-        print self.mousepos
+        if self.scalef + (dy * inc) < 0.001: dy = 0
+
+        newscalef = self.scalef + (dy * inc)
+        self.translation[:2] -= (self.mousepos * newscalef) - (self.mousepos * self.scalef)
+        self.scalef = newscalef
          #self.translation += array((dx,dy, 0)) * 0.5
         
 
@@ -256,25 +259,20 @@ def EfieldC(pos, buttons = Buttons):
     return array((force.x, force.y))
 
     
-def Cdrawfieldlines():
+def Cdrawfieldlines(context):
+    step = 5.0 / context.scalef if 5.0 / context.scalef >= 1.0 else 1.0
+
     pointsarray = pointcharge * len(Buttons)
     points = pointsarray(*(pointcharge(button.x, button.y, button.charge) for button in Buttons))
     numofButtons = len(Buttons)
-    datatype = ((ctypes.c_double * 200)*12)*numofButtons
+    datatype = ((ctypes.c_double * 600)*12)*numofButtons
     data = datatype()
-    clib.vectorline(ctypes.c_int(len(Buttons)),points,data)
+    clib.vectorline(ctypes.c_int(len(Buttons)),points,data, ctypes.c_double(step))
     for cbutton,pbutton in zip(data, Buttons):
         for list in cbutton:
             #print "after",list[:10]
             line(*list, colour=pbutton.halo_colour)
     
-
-def nearbutton(pos):
-    for Button in Buttons:
-        if ((Button.x-10 < pos[0] < Button.x+10) and (Button.y-10 < pos[1] < Button.y+10)): return True
-    return False
-def offscreen(pos):
-    return not ((0 < pos[0] < window.width) and (0 < pos[1] < window.height))
 
 buttonevents = ButtonEventHandler() 
 

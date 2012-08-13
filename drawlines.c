@@ -2,8 +2,7 @@
 #include  <math.h>
 
 #define numoflines 12
-#define maxits 100
-#define step 10.0
+#define maxits 300
 
 typedef struct {
     double x;
@@ -18,7 +17,7 @@ typedef struct {
 
 int nearbutton(vec2 pos, int numberofpoints, pointcharge point[]);
 vec2 field(vec2 pos, int numofpoints, pointcharge points[]);
-void vectorline(int numofpoints, pointcharge points[], double output[][numoflines][maxits*2]);
+void vectorline(int numofpoints, pointcharge points[], double output[][numoflines][maxits*2], double step);
 
     
 vec2 field(vec2 pos, int numofpoints, pointcharge points[])
@@ -39,7 +38,7 @@ vec2 field(vec2 pos, int numofpoints, pointcharge points[])
 }
 
 
-void vectorline(int numofpoints, pointcharge points[], double output[][numoflines][maxits*2])
+void vectorline(int numofpoints, pointcharge points[], double output[][numoflines][maxits*2], double step)
 {
 double anglestep = (M_PI*2.0)/(double)numoflines;
 
@@ -58,11 +57,11 @@ for(int point = 0; point < numofpoints; point++)
             {
             vec2 pos;
             pos.x = lastx; pos.y = lasty;
-            vec2 this = field(pos, numofpoints, points);
-            double mag = sqrt((this.x*this.x) + (this.y*this.y));
-            this.x = this.x/mag; this.y = this.y/mag;
-            lastx = output[point][lineno][2*it] = lastx + (this.x * step * points[point].charge);
-            lasty = output[point][lineno][(2*it)+1] = lasty + (this.y * step * points[point].charge);
+            vec2 thisvec = field(pos, numofpoints, points);
+            double mag = sqrt((thisvec.x*thisvec.x) + (thisvec.y*thisvec.y));
+            thisvec.x = thisvec.x/mag; thisvec.y = thisvec.y/mag;
+            lastx = output[point][lineno][2*it] = lastx + (thisvec.x * step * points[point].charge);
+            lasty = output[point][lineno][(2*it)+1] = lasty + (thisvec.y * step * points[point].charge);
             }
         }
     }
