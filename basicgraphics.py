@@ -23,8 +23,8 @@ def line(*args, **kwargs):
     numofpoints = len(args) // 2 
     colour = kwargs.get('colour') or (255,255,255)
     pyglet.graphics.draw(numofpoints, pyglet.gl.GL_LINE_STRIP,
-                        ('v2f', tuple(args)),
-                        ('c%sB' % len(colour),[x for _ in range(numofpoints) for x in colour]) 
+                        ('v2f/stream', tuple(args)),
+                        ('c%sB/static' % len(colour),[x for _ in range(numofpoints) for x in colour]) 
                         )
 
 
@@ -37,18 +37,18 @@ def point(x, y, colour = (255,255,255)):
 
 class Polygon(object):
     def __init__(self, **kwargs):
-        self.vertices = kwargs['points']
+
         self.colour = kwargs.get('colour') or (255,255,255)
+        numofvertices = len(kwargs['points'])
+        flattenedpointlist = [term for point in kwargs['points'] for term in point]
+        self.vertexlist = pyglet.graphics.vertex_list(numofvertices,
+                            ('v2f/static', flattenedpointlist),
+                            ('c%sB/static' % len(self.colour),[x for _ in range(numofvertices) for x in self.colour]) 
+                            )
     def draw(self,x,y, *args, **kwargs):
-        self.colour = kwargs.get('colour') or self.colour # update colour if need be
-        numofvertices = len(self.vertices)
-        flattenedpointlist = [term for point in self.vertices for term in point]
         glPushMatrix()
         glTranslated(x, y, 0)
-        pyglet.graphics.draw(numofvertices, pyglet.gl.GL_POLYGON,
-                            ('v2f', flattenedpointlist),
-                            ('c%sB' % len(self.colour),[x for _ in range(numofvertices) for x in self.colour]) 
-                            )
+        self.vertexlist.draw(pyglet.gl.GL_POLYGON)
         glPopMatrix()
         
 class Circle(Polygon):
@@ -63,28 +63,6 @@ class RoundedSquare(Polygon):
     def __init__(self, r, vertexdensity=5.0, **kwargs):
         pass
 
-def findline(x, y, x1, y1):
-    reallybig = 2**64
-    if x != x1:
-        slope = (y - y1)/float(x - x1)
-        intercept = y - (slope*x)
-        return slope, intercept
-    else:
-        return reallybig, 0 # fail semi-gracefully
-def abstractline(slope, intercept, width, height):
-    rightintercept = slope*width + intercept
-    line(0, intercept, width, rightintercept)
-def perpline(x, y, x1,y1):
-    if x1 != x and y != y1:
-        slope = -1.0 / ((y - y1)/(x-x1))
-        intercept = ((y+y1)/2) - slope * ((x+x1)/2)
-    elif y == y1:
-        slope = 2**64
-        intercept = 0
-    else:
-        slope = 0
-        intercept = (y+y1)/2
-    return slope, intercept
 if __name__ == '__main__':
     b_assert(polar_to_cart(1, pi*0.5)[1], 1)
     print rand_colour()

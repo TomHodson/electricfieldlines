@@ -117,6 +117,10 @@ class Button(object):
         self.vel = array((0,0))
         self.acc = array((0,0))
         self.x, self.y = self.pos[0], self.pos[1]
+        self.vertexlists = [pyglet.graphics.vertex_list(steps,
+                        ('v2f/stream', [0 for _ in range(steps*2)]),
+                        ('c%sB/static' % len(self.halo_colour),[x for _ in range(steps) for x in self.halo_colour]) 
+                        ) for _ in range(linesperbutton)]
 
     def mouse_press(self, x, y, button, modifiers, context):
         if self.hovered:
@@ -280,22 +284,27 @@ def EfieldC(pos, buttons = Buttons):
     points = pointsarray(*(pointcharge(button.x, button.y, button.charge) for button in buttons))
     force = clib.field(pos, ctypes.c_int(len(points)), points)
     #print  'EfieldC out', array((force.x, force.y)), force.x, force.y
-    return array((force.x, force.y))
+    return array((force.x, force.y)) * 100
 
+steps = 300
+linesperbutton = 12
     
 def Cdrawfieldlines(context):
+
     step = 5.0 / context.scalef if 5.0 / context.scalef >= 1.0 else 1.0
 
     pointsarray = pointcharge * len(Buttons)
     points = pointsarray(*(pointcharge(button.x, button.y, button.charge) for button in Buttons))
     numofButtons = len(Buttons)
-    datatype = ((ctypes.c_double * 600)*12)*numofButtons
+    datatype = ((ctypes.c_double * (steps*2))*linesperbutton)*numofButtons
     data = datatype()
     clib.vectorline(ctypes.c_int(len(Buttons)),points,data, ctypes.c_double(step))
     for cbutton,pbutton in zip(data, Buttons):
-        for list in cbutton:
+        for vertexlist,clist in zip(pbutton.vertexlists,cbutton):
             #print "after",list[:10]
-            line(*list, colour=pbutton.halo_colour)
+            print len(clist)
+            vertexlist.vertices = clist
+            vertexlist.draw(pyglet.gl.GL_LINE_STRIP)
     
 
 buttonevents = ButtonEventHandler() 
