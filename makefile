@@ -3,7 +3,7 @@ CFLAGS=-Wall --std=gnu99 -lm
 
 
 drawlines.so : drawlines.c
-	$(CC) -shared -fPIC $(CFLAGS) -Wl,-soname,$@ -o $@ $<
+	$(CC) -shared -fPIC $(CFLAGS) -o $@ $< #-Wl,-soname,$@
 
 .PHONY: clean
 clean:
