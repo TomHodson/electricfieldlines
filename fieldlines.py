@@ -64,12 +64,12 @@ try:
     import ctypes
     clib = ctypes.CDLL("./drawlines.so")
     class vec2(ctypes.Structure):
-            _fields_ = [("x", c_double),
-                        ("y", c_double)]
+            _fields_ = [("x", ctypes.c_double),
+                        ("y", ctypes.c_double)]
     class pointcharge(ctypes.Structure):
-            _fields_ = [("x", c_double),
-                        ("y", c_double),
-                        ("charge",c_double)]
+            _fields_ = [("x", ctypes.c_double),
+                        ("y", ctypes.c_double),
+                        ("charge",ctypes.c_double)]
     clib.field.restype = vec2
 except ImportError:
     print "Ctypes not installed, switching to python (slow)"
@@ -119,7 +119,7 @@ class Button(object):
         self.x, self.y = self.pos[0], self.pos[1]
         self.vertexlists = [pyglet.graphics.vertex_list(steps,
                         ('v2f/stream', [0 for _ in range(steps*2)]),
-                        ('c%sB/static' % len(self.halo_colour),[x for _ in range(steps) for x in self.halo_colour]) 
+                        ('c%sB/static' % len(self.halo_colour),[c for _ in range(steps) for c in self.halo_colour]) 
                         ) for _ in range(linesperbutton)]
 
     def mouse_press(self, x, y, button, modifiers, context):
@@ -302,7 +302,7 @@ def Cdrawfieldlines(context):
     for cbutton,pbutton in zip(data, Buttons):
         for vertexlist,clist in zip(pbutton.vertexlists,cbutton):
             #print "after",list[:10]
-            print len(clist)
+            #print len(clist)
             vertexlist.vertices = clist
             vertexlist.draw(pyglet.gl.GL_LINE_STRIP)
     
