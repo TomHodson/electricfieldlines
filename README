@@ -1,3 +1,4 @@
+![Screenshot](pics/screenshot?raw=true)
 Depends on Ctypes, Numpy and Pyglet.
 
 To compile (from within the directory):
