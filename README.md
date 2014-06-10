@@ -1,3 +1,6 @@
+Electric Field Lines
+=====================
+
 ![Screenshot](pics/screenshot?raw=true)
 Depends on Ctypes, Numpy and Pyglet.
 
