@@ -1,4 +1,7 @@
-![Screenshot](pics/screenshot?raw=true)
+Electric Field Lines
+=====================
+
+![Screenshot](pics/screenshot.png?raw=true)
 Depends on Ctypes, Numpy and Pyglet.
 
 To compile (from within the directory):
