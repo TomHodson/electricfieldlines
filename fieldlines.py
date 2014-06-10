@@ -59,6 +59,7 @@ update = True
 vectlines = True
 vectgrid = False
 useC = True
+paused = True
 
 try:
     import ctypes
@@ -151,7 +152,7 @@ class Button(object):
                 return True
             
     def key_press(self, symbol, mods):
-        if self.hovered and symbol == key.DELETE:
+        if self.hovered and symbol == key.D:
                 Buttons.remove(self)
                 deadlinks = set()
                 for link in Links:
@@ -161,15 +162,16 @@ class Button(object):
                 del self
         
     def draw(self, dt = 1.0/20.0):
-        friction = 0.9
+        friction = 0.7
 
-        self.acc += (self.charge * 1000 * EfieldC((self.x, self.y), [button for button in Buttons if button is not self]) * self.invmass)
-        #print 'acc ' ,self.acc
-        self.vel += self.acc * dt
-        self.vel *= friction
-        #print 'old pos ', self.x, self.y
-        self.x, self.y = (self.x, self.y) + (self.vel * dt)
-        #print 'new pos ', self.x, self.y
+        if not paused:
+            self.acc += (self.charge * 1000 * EfieldC((self.x, self.y), [button for button in Buttons if button is not self]) * self.invmass)
+            #print 'acc ' ,self.acc
+            self.vel += self.acc * dt
+            self.vel *= friction
+            #print 'old pos ', self.x, self.y
+            self.x, self.y = (self.x, self.y) + (self.vel * dt)
+            #print 'new pos ', self.x, self.y
 
 
         if self.held:
@@ -217,7 +219,7 @@ class ButtonEventHandler(object):
         window.clear()
 
         fps_display.draw()
-        debuginfo = pyglet.text.Label('scale: {:.3} worldpoint: {p[0]:4.0f},{p[0]:4.0f} selected: {s}'.format(self.scalef, p=self.mousepos, s=self.selected_objects),
+        debuginfo = pyglet.text.Label('scale: {:.3} worldpoint: {p[0]:4.0f},{p[0]:4.0f}, force: {f}  '.format(self.scalef, p=self.mousepos, f=EfieldC(self.mousepos)),
                           font_name='monospace',
                           font_size=15,
                           x=0, y=window.height - 15)
@@ -255,13 +257,17 @@ class ButtonEventHandler(object):
             
     def on_key_press(self, *args):
         global vectlines; global vectgrid; global update; global useC
-        global Buttons; global Links
+        global Buttons; global Links; global paused
         if args[0] == key.C: Buttons = []; Links = set()
-        if args[0] == key.L: vectlines = not vectlines
-        if args[0] == key.B:
+        elif args[0] == key.L: vectlines = not vectlines
+        elif args[0] == key.B:
             Buttons.append(Button(self.mousepos[0], self.mousepos[1], 20, charge =10))
-        if args[0] == key.N:
+        elif args[0] == key.N:
             Buttons.append(Button(self.mousepos[0], self.mousepos[1], 20, charge=-10))
+        elif args[0] == key.P:
+            paused = not paused
+        elif args[0] == key.Q:
+            plot_field()
         elif hovered:
                 hovered.key_press(*args)
         update = True
@@ -305,6 +311,14 @@ def Cdrawfieldlines(context):
             #print len(clist)
             vertexlist.vertices = clist
             vertexlist.draw(pyglet.gl.GL_LINE_STRIP)
+def plot_field():
+    granularity = 10
+    width = window.width / granularity
+    height = window.height / granularity
+    print EfieldC((1.0,1.0))
+    data = bytearray(EfieldC)
+    fieldtexture = pyglet.image.ImageData(width, height, "RGB", data)
+
     
 
 buttonevents = ButtonEventHandler() 
@@ -317,8 +331,8 @@ pyglet.clock.schedule_interval(buttonevents.compute, 1.0/20.0)
 held_objects = set()
 selected_objects = set()
 hovered = None
-Buttons = [Button(mouseX, mouseY, 20), Button(mouseX, mouseY + 100, 20)]
-Links = set([Link(Buttons[0] , Buttons[1], 10.0, 100.0)])
+Buttons = [Button(mouseX, mouseY, 20, charge = 10), Button(mouseX, mouseY + 100, 20, charge = 10)]
+Links = set()#set([Link(Buttons[0] , Buttons[1], 10.0, 100.0)])
 #window.push_handlers(pyglet.window.event.WindowEventLogger())
 
 pyglet.app.run()
