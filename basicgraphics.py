@@ -11,8 +11,12 @@ def b_assert(thing1, thing2):
     else:
         raise AssertionError(str(thing1) + ' != ' + str(thing2))
 
+from colorsys import hsv_to_rgb
 def rand_colour(len = 3):
-    return tuple(randrange(255) for _ in range(len))
+    rgb = hsv_to_rgb(randrange(2**16)/float(2**16), 0.9, 0.9)
+    print rgb
+    return map(lambda x : int(x * 255.0), rgb)
+    #return tuple(randrange(255) for _ in range(len))
     
 
 def polar_to_cart(r, theta, x=0, y =0):
