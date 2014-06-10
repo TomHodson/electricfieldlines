@@ -5,10 +5,10 @@ Electric Field Lines
 Depends on Ctypes, Numpy and Pyglet.
 
 To compile (from within the directory):
-$ make
+	$ make
 
 To run:
-$ ./fieldlines.py
+	$ ./fieldlines.py
 
 Controls:
 
